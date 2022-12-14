@@ -407,26 +407,34 @@ impl AuthorityAggregator<NetworkAuthorityClient> {
 }
 
 #[async_trait]
-pub trait AdvanceEpochTxCertifier {
-    async fn create_advance_epoch_cert(
+pub trait TransactionCertifier: Sync + Send + 'static {
+    async fn create_certificate(
         &self,
         transaction: &VerifiedTransaction,
-        self_state: &Arc<AuthorityState>,
+        self_state: &AuthorityState,
         timeout: Duration,
     ) -> anyhow::Result<VerifiedCertificate>;
 }
 
-pub struct NetworkAdvanceEpochTxCertifier {}
-pub struct LocalAdvanceEpochTxCertifier {
+#[derive(Default)]
+pub struct NetworkTransactionCertifier {}
+
+pub struct LocalTransactionCertifier {
     state_map: BTreeMap<AuthorityName, Arc<AuthorityState>>,
 }
 
+impl LocalTransactionCertifier {
+    pub fn new(state_map: BTreeMap<AuthorityName, Arc<AuthorityState>>) -> Self {
+        Self { state_map }
+    }
+}
+
 #[async_trait]
-impl AdvanceEpochTxCertifier for NetworkAdvanceEpochTxCertifier {
-    async fn create_advance_epoch_cert(
+impl TransactionCertifier for NetworkTransactionCertifier {
+    async fn create_certificate(
         &self,
         transaction: &VerifiedTransaction,
-        self_state: &Arc<AuthorityState>,
+        self_state: &AuthorityState,
         timeout: Duration,
     ) -> anyhow::Result<VerifiedCertificate> {
         let net = AuthorityAggregator::new_from_system_state(
@@ -441,11 +449,11 @@ impl AdvanceEpochTxCertifier for NetworkAdvanceEpochTxCertifier {
 }
 
 #[async_trait]
-impl AdvanceEpochTxCertifier for LocalAdvanceEpochTxCertifier {
-    async fn create_advance_epoch_cert(
+impl TransactionCertifier for LocalTransactionCertifier {
+    async fn create_certificate(
         &self,
         transaction: &VerifiedTransaction,
-        self_state: &Arc<AuthorityState>,
+        self_state: &AuthorityState,
         timeout: Duration,
     ) -> anyhow::Result<VerifiedCertificate> {
         let sui_system_state = self_state.get_sui_system_state_object().await?;
@@ -1855,7 +1863,7 @@ where
     pub async fn authorty_ask_for_cert_with_retry_and_timeout(
         &self,
         transaction: &VerifiedTransaction,
-        state: &Arc<AuthorityState>,
+        state: &AuthorityState,
         timeout: Duration,
     ) -> anyhow::Result<VerifiedCertificate> {
         let result = tokio::time::timeout(timeout, async {

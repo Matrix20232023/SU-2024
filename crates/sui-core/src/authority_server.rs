@@ -28,6 +28,7 @@ use sui_types::{error::*, messages::*};
 use tap::TapFallible;
 use tokio::{sync::mpsc::Receiver, task::JoinHandle, time::sleep};
 
+use crate::authority_aggregator::NetworkTransactionCertifier;
 use mysten_metrics::spawn_monitored_task;
 use narwhal_types::TransactionsClient;
 use sui_types::messages_checkpoint::CheckpointRequest;
@@ -292,6 +293,7 @@ impl ValidatorService {
             Box::new(state.database.clone()),
             checkpoint_output,
             Box::new(certified_checkpoint_output),
+            Box::new(NetworkTransactionCertifier::default()),
             CheckpointMetrics::new(&prometheus_registry),
         );
 
